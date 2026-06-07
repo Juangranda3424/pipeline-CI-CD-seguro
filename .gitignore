@@ -1,0 +1,36 @@
+# Dependencias
+node_modules/
+
+# Variables de entorno
+.env
+.env.local
+.env.production
+
+# Logs
+logs/
+*.log
+pnpm-debug.log*
+
+# Archivos temporales
+tmp/
+temp/
+
+# Caché
+.cache/
+
+# Cobertura de pruebas
+coverage/
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
+
+# VS Code (opcional)
+.vscode/
+
+# Archivos generados
+dist/
+build/
+
+# Docker
+*.pid

@@ -1,0 +1,28 @@
+name: Promote Test To Main
+
+on:
+  push:
+    branches:
+      - test
+
+jobs:
+  merge:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+
+      - name: Merge test into main
+        run: |
+          git fetch origin
+          git checkout main
+          git merge origin/test --no-edit
+          git push origin main

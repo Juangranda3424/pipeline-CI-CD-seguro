@@ -12,4 +12,8 @@ app.use(express.json());
 
 app.use("/api/usuarios", router);
 
+app.get("/", (req, res) => {
+    res.json({ mensaje: "API funcionando" });
+});
+
 export default app;

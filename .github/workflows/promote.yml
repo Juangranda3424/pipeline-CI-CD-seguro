@@ -29,3 +29,19 @@ jobs:
           git checkout main
           git merge origin/test --no-edit
           git push origin main
+
+      - name: Notificar despliegue exitoso
+        if: success()
+        run: |
+          curl -s -X POST \
+          https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage \
+          -d chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
+          -d text="🚀 Merge automático test → main realizado correctamente."
+
+      - name: Notificar error en despliegue
+        if: failure()
+        run: |
+          curl -s -X POST \
+          https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage \
+          -d chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
+          -d text="❌ Error durante el merge automático hacia producción."

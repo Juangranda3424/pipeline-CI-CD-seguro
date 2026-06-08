@@ -10,6 +10,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Notificar inicio de revisión
+        run: |
+          curl -s -X POST \
+          https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage \
+          -d chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
+          -d text="🔍 Inicio de revisión de seguridad para PR dev → test"
+
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -28,3 +35,19 @@ jobs:
 
       - name: Run tests
         run: pnpm test
+
+      - name: Notificar pruebas exitosas
+        if: success()
+        run: |
+          curl -s -X POST \
+          https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage \
+          -d chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
+          -d text="✅ Pipeline aprobado. Pruebas completadas correctamente."
+
+      - name: Notificar pruebas fallidas
+        if: failure()
+        run: |
+          curl -s -X POST \
+          https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage \
+          -d chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
+          -d text="❌ Pipeline falló. Revisar pruebas y corregir errores."

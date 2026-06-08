@@ -12,6 +12,8 @@ app.use(express.json());
 
 app.use("/api/usuarios", router);
 
-app.listen(process.env.PORT, () => {
-    console.log("Servidor iniciado en ek puerto " + process.env.PORT);
+app.get("/", (req, res) => {
+    res.json({ mensaje: "API funcionando" });
 });
+
+export default app;

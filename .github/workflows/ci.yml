@@ -10,70 +10,81 @@ permissions:
   pull-requests: write
 
 jobs:
-  pipeline:
+  pipeline-completo:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      # ==========================================
+      # CONFIGURACIÓN INICIAL
+      # ==========================================
+      - name: Checkout del código
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0 # Necesario para traer el historial y hacer el merge entre ramas
 
-      - name: Setup Node
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
+        # Al no poner "version", leerá automáticamente el pnpm@9.0.0 de tu package.json
 
-      - name: Install dependencies
+      - name: Instalar dependencias
         run: pnpm install
 
-      # ==========================================
-      # ETAPA 1: (Aquí colocas tu modelo de IA de Seguridad)
-      # ==========================================
 
       # ==========================================
-      # ETAPA 2: Ejecutar Pruebas
+      # ETAPA 1: REVISIÓN DE SEGURIDAD (MODELO IA)
       # ==========================================
-        Tibia - name: Run tests
+      # Nota: Aquí debes integrar la ejecución de tu script de Python / Scikit-Learn.
+      # Si el modelo detecta "VULNERABLE", tu script debe lanzar un 'exit 1' para detener el pipeline.
+      - name: Análisis de Seguridad con Machine Learning
+        run: |
+          echo "Ejecutando modelo de minería de datos para detección de vulnerabilidades..."
+          # Ejemplo: python scripts/security_model.py
+          
+
+      # ==========================================
+      # ETAPA 2: PRUEBAS UNITARIAS Y MERGE A TEST
+      # ==========================================
+      - name: Ejecutar Pruebas
         run: pnpm test
 
-      - name: Telegram Error en Tests
+      - name: Telegram - Error en Pruebas o Seguridad
         if: failure()
         run: |
           curl -s -X POST https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage \
           -d chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
-          -d text="❌ Los tests fallaron. PR no fusionado."
+          -d text="❌ El pipeline falló en la etapa de validación. PR bloqueado o tests fallidos. Revisar logs."
 
-      # ==========================================
-      # ETAPA 3: Merge Automático a Test usando GitHub CLI
-      # ==========================================
-      - name: Merge Pull Request a Test
+      - name: Merge Automático a rama TEST
         if: success()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          echo "Validaciones correctas. Fusionando automáticamente a la rama test..."
           gh pr merge ${{ github.event.pull_request.number }} --merge --auto
 
-      - name: Telegram Success Test
+      - name: Telegram - Merge a Test Exitoso
         if: success()
         run: |
           curl -s -X POST https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage \
           -d chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
-          -d text="✅ Tests aprobados. PR fusionado automáticamente a test."
+          -d text="✅ Tests aprobados. PR fusionado automáticamente a la rama 'test'."
+
 
       # ==========================================
-      # ETAPA 4: Merge directo a MAIN (Producción)
+      # ETAPA 3: MERGE AUTOMÁTICO A MAIN (PRODUCCIÓN)
       # ==========================================
-      - name: Configure Git
+      - name: Configurar credenciales de Git
         if: success()
         run: |
           git config --global user.name "github-actions"
           git config --global user.email "github-actions@github.com"
 
-      - name: Merge test into main & Push
+      - name: Fusionar cambios de Test a Main vía Git
         if: success()
         run: |
           git fetch origin
@@ -81,13 +92,20 @@ jobs:
           git merge origin/test --no-edit
           git push origin main
 
-      # ==========================================
-      # ETAPA 5: Aquí colocas tu comando de build/deploy Docker a Vercel/Render
-      # ==========================================
 
-      - name: Notificar despliegue exitoso a Main
+      # ==========================================
+      # ETAPA 4: DESPLIEGUE (DOCKER / VERCEL / RENDER)
+      # ==========================================
+      # Nota: Aquí añadirás tus comandos finales para compilar tu Dockerfile o subir a tu nube.
+      - name: Ejecutar Build y Despliegue en Producción
+        if: success()
+        run: |
+          echo "Iniciando despliegue de la imagen de producción..."
+          # Aquí van tus comandos de Docker o el CLI del proveedor que elijas
+
+      - name: Telegram - Despliegue Final Exitoso
         if: success()
         run: |
           curl -s -X POST https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage \
           -d chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
-          -d text="🚀 Merge automático test → main y despliegue realizado correctamente."
+          -d text="🚀 ¡Todo listo! El código se encuentra unificado en 'main' y desplegado correctamente."

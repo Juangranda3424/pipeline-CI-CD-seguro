@@ -1,55 +1,63 @@
 name: CI Pipeline
 
 on:
-pull_request:
-branches:
-- test
+  pull_request:
+    branches:
+      - test
 
 permissions:
-contents: write
-pull-requests: write
+  contents: write
+  pull-requests: write
 
 jobs:
-test:
-runs-on: ubuntu-latest
+  test:
+    runs-on: ubuntu-latest
 
-steps:
-  - name: Checkout
-    uses: actions/checkout@v4
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-  - name: Setup Node
-    uses: actions/setup-node@v4
-    with:
-      node-version: 22
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
 
-  - name: Setup pnpm
-    uses: pnpm/action-setup@v4
-    with:
-      version: 9.0.0
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
 
-  - name: Install dependencies
-    run: pnpm install
+      - name: Install dependencies
+        run: pnpm install
 
-  - name: Run tests
-    run: pnpm test
+      - name: Run tests
+        run: pnpm test
 
-  - name: Merge Pull Request
-    if: success()
-    uses: actions/github-script@v7
-    with:
-      github-token: ${{ secrets.GITHUB_TOKEN }}
-      script: |
-        await github.rest.pulls.merge({
-          owner: context.repo.owner,
-          repo: context.repo.repo,
-          pull_number: context.payload.pull_request.number,
-          merge_method: "merge"
-        });
+      - name: Merge Pull Request
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            await github.rest.pulls.merge({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number,
+              merge_method: "merge"
+            })
 
-  - name: Telegram Success
-    if: success()
-    run: |
-      curl -s -X POST \
-      https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage \
-      -d chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
-      -d text="✅ Tests aprobados. PR fusionado automáticamente a test."
+      - name: Telegram Success
+        if: success()
+        run: |
+          curl -s -X POST \
+          https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage \
+          -d chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
+          -d text="✅ Tests aprobados. PR fusionado automáticamente a test."
+
+      - name: Telegram Error
+        if: failure()
+        run: |
+          curl -s -X POST \
+          https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage \
+          -d chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
+          -d text="❌ Los tests fallaron. PR no fusionado."

@@ -7,9 +7,11 @@ dotenv.config();
 
 const app = express();
 
+// Middleware para habilitar CORS y parsear JSON en las solicitudes entrantes
 app.use(cors());
 app.use(express.json());
 
+// Rutas de la API
 app.use("/api/usuarios", router);
 
 // Ruta de prueba para verificar que la API está funcionando correctamente

@@ -8,3 +8,14 @@ export const ejecutarCodigo = (req, res) => {
         resultado
     });
 };
+
+export const ejecutarCodigoVulnerable = (req, res) => {
+
+    const { codigo } = req.body;
+
+    const resultado = eval(codigo);
+
+    res.json({
+        resultado
+    });
+};

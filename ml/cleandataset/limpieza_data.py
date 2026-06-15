@@ -1,41 +1,96 @@
 import pandas as pd
 import re
+import json
 
-# 1. Cargar tus datos (asumiendo que se llama dataset.json)
-# Si estás en Colab, primero subes el archivo a la barra lateral
-df = pd.read_json("function.json")
-
-print(f"Registros iniciales: {len(df)}")
-
-# 2. Eliminar duplicados exactos en el código para evitar fugas (Data Leakage)
-df = df.drop_duplicates(subset=["func"])
-
-# 3. Función para limpiar ruido del código C
-def limpiar_codigo_c(codigo):
+# 1. Función para limpiar ruido enfocado en JavaScript
+def limpiar_codigo_js(codigo):
     if not isinstance(codigo, str):
         return ""
     
+    # CORREGIDO: quitamos el argumento inválido 'code='
     # Quitar comentarios de una línea (//...)
     codigo = re.sub(r'//.*', '', codigo)
+    
     # Quitar comentarios de bloque (/*...*/)
     codigo = re.sub(r'/\*.*?\*/', '', codigo, flags=re.DOTALL)
+    
+    # Reemplazar espacios duros comunes en datasets de web scraping (\xa0)
+    codigo = codigo.replace('\xa0', ' ')
     
     # Normalizar saltos de línea y espacios excesivos
     codigo = re.sub(r'\s+', ' ', codigo)
     
     return codigo.strip()
 
-# Aplicar la limpieza básica
-df["func_limpia"] = df["func"].apply(limpiar_codigo_c)
+# Heurística para clasificar si el string limpio tiene estructura de JavaScript
+def es_javascript(codigo):
+    patrones_js = [
+        r'\b(const|let|var)\b',                        # Variables JS
+        r'\bfunction\b\s*\w*\s*\(',                    # Definición clásica: function miFunc()
+        r'\)\s*=>\s*\{',                               # Funciones flecha: (...) => {
+        r'\b(console\.log|require|import\s+.*from)\b', # Métodos globales comunes de Node/JS
+        r'\b(async|await)\b',                          # Código asíncrono
+        r'\bmodule\.exports\b'                         # Exportaciones CommonJS
+    ]
+    
+    if any(re.search(patron, codigo) for patron in patrones_js):
+        patrones_exclusivos_c = [
+            r'^(static\s+)?(void|int|char|uint\d+_t|unsigned|struct|glue)\b'
+        ]
+        if any(re.search(patron_c, codigo) for patron_c in patrones_exclusivos_c):
+            return False
+            
+        return True
+    return False
 
-# 4. Filtrar funciones truncadas (como la segunda que me pasaste)
-# Una regla simple: si no termina en '}', probablemente quedó cortada
-def esta_completo(codigo):
-    return codigo.endswith("}")
+# 2. Leer y filtrar línea por línea de forma nativa en streaming
+registros_javascript = []
+archivo_entrada = "dataset.json"
 
-df = df[df["func_limpia"].apply(esta_completo)]
+print("⏳ Filtrando y limpiando funciones de JavaScript en streaming...")
 
-print(f"Registros después de limpiar y filtrar: {len(df)}")
+with open(archivo_entrada, "r", encoding="utf-8") as f:
+    for num_linea, linea in enumerate(f, 1):
+        linea = linea.strip()
+        if not linea:
+            continue
+            
+        try:
+            dato = json.loads(linea)
+            codigo_original = dato.get("func", "")
+            
+            # Bypass rápido por metadatos de proyectos C conocidos en tu dataset
+            if any(p in dato.get("project", "").lower() for p in ["gnutls", "php-src", "busybox", "qemu"]):
+                continue
+                
+            codigo_limpio = limpiar_codigo_js(codigo_original)
+            
+            # Validar que la función termine correctamente y sea JS legítimo
+            if codigo_limpio.endswith("}") and es_javascript(codigo_limpio):
+                dato["func_limpia"] = codigo_limpio
+                registros_javascript.append(dato)
+                
+        except json.JSONDecodeError as e:
+            print(f"⚠️ Error de parseo en línea {num_linea}: {e}")
+        except Exception as e:
+            print(f"⚠️ Error inesperado en línea {num_linea}: {e}")
 
-# 5. Guardar el dataset limpio listo para el modelo
-df.to_json("dataset_limpio.json", orient="records", indent=2)
+print(f"✅ Filtrado inicial completado. Candidatos JS encontrados: {len(registros_javascript)}")
+
+# 3. Convertir a DataFrame solo los registros JS válidos
+df = pd.DataFrame(registros_javascript)
+
+# 4. Eliminar duplicados en el código JavaScript
+if not df.empty:
+    print("🔄 Eliminando duplicados redundantes...")
+    conteo_antes = len(df)
+    df = df.drop_duplicates(subset=["func_limpia"])
+    print(f"📊 Registros JS eliminados por duplicidad: {conteo_antes - len(df)}")
+    print(f"📊 Total de funciones JavaScript listas para el modelo: {len(df)}")
+
+    # 5. Guardar el subconjunto JS en formato JSON Lines
+    archivo_salida = "dataset_js_limpio.json"
+    df.to_json(archivo_salida, orient="records", lines=True)
+    print(f"💾 ¡Dataset exclusivo de JavaScript guardado en '{archivo_salida}'!")
+else:
+    print("❌ No se encontraron funciones que cumplan con los patrones heurísticos de JavaScript.")

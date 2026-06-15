@@ -213,20 +213,6 @@ jobs:
           -d text="🚀 Rama MAIN actualizada automáticamente."
 
       # ==========================================
-      # ETAPA 4 - BUILD Y DEPLOY
-      # ==========================================
-      - name: Build Docker
-        if: success()
-        run: |
-          docker build -t secure-app .
-
-      - name: Deploy Producción
-        if: success()
-        run: |
-          echo "Ejecutando despliegue..."
-          # Aquí colocarás Render, Railway, Fly.io, Vercel, etc.
-
-      # ==========================================
       # TELEGRAM FINAL
       # ==========================================
       - name: Telegram - Despliegue exitoso

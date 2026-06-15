@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import router from "./routes/usuarios.routes.js";
+import testRouter from "./routes/test.routes.js";
 
 dotenv.config();
 
@@ -13,6 +14,9 @@ app.use(express.json());
 
 // Rutas de la API
 app.use("/api/usuarios", router);
+
+// Rutas para ejecutar código dinámico (solo para pruebas, no recomendado en producción)
+app.use("/api/test", testRouter);
 
 // Ruta de prueba para verificar que la API está funcionando correctamente
 app.get("/", (req, res) => {

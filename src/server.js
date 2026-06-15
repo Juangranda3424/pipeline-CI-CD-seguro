@@ -1,8 +1,7 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import router from "./routes/usuarios.routes.js";
-import testRouter from "./routes/test.routes.js";
+import routerPanaderia from "./routes/panaderia.routes.js";
 
 dotenv.config();
 
@@ -12,11 +11,8 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Rutas de la API
-app.use("/api/usuarios", router);
-
-// Rutas para ejecutar código dinámico (solo para pruebas, no recomendado en producción)
-app.use("/api/test", testRouter);
+// Inyección de rutas modulares
+app.use("/api/panaderia", routerPanaderia);
 
 // Ruta de prueba para verificar que la API está funcionando correctamente
 app.get("/", (req, res) => {

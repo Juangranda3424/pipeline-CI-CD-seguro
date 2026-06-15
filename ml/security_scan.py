@@ -45,7 +45,7 @@ def extract_features(code_text):
         r'sizeof\('
     ]
 
-    # Guardamos los conteos individuales para el sistema de seguridad estricto
+    # Guardamos los conteos individuales mapeando exactamente los mismos patrones de la lista
     dangerous_matches = {p: len(re.findall(p, code_text)) for p in dangerous_patterns}
     
     features['dangerous_calls'] = sum(dangerous_matches.values())
@@ -73,22 +73,34 @@ def extract_features(code_text):
 # LEER ARCHIVO MODIFICADO
 # ==========================
 with open("changed_code.txt", "r", encoding="utf-8") as f:
-    code = f.read()
+    raw_diff = f.read()
 
-# Extraer métricas y el diccionario de coincidencias críticas
-features_dict, dangerous_matches = extract_features(code)
+# OPTIMIZACIÓN: Limpiar el formato Diff de Git para la IA
+# Quitamos los indicadores de líneas añadidas '+' al inicio de la línea para dejar el código limpio
+cleaned_lines = []
+for line in raw_diff.splitlines():
+    if line.startswith('+'):
+        cleaned_lines.append(line[1:])  # Quita el primer carácter '+'
+    elif not line.startswith('-'):      # Ignora líneas eliminadas, conserva el contexto
+        cleaned_lines.append(line)
+
+code_to_analyze = "\n".join(cleaned_lines)
+
+# Extraer métricas y el diccionario de coincidencias críticas utilizando el código limpio
+features_dict, dangerous_matches = extract_features(code_to_analyze)
 manual = pd.DataFrame([features_dict])
 
-X_tokens = vectorizer.transform([code])
+X_tokens = vectorizer.transform([code_to_analyze])
 X_manual = sp.csr_matrix(manual.values)
 X = sp.hstack([X_tokens, X_manual])
 
 # ==========================
 # REGLETA DE SEGURIDAD (CRITICAL FAILSAFE)
 # ==========================
-# Si se detecta un uso explícito de eval o exec en el diff, bloqueamos directo
-if dangerous_matches.get(r'eval\温', 0) > 0 or dangerous_matches.get(r'exec\温', 0) > 0:
+# CORREGIDO: Buscamos exactamente las llaves r'eval\(' y r'exec\(' sin caracteres corruptos
+if dangerous_matches.get(r'eval\(', 0) > 0 or dangerous_matches.get(r'exec\(', 0) > 0:
     print("🚨 [CRITICAL FAILSAFE] Se detectó una llamada directa a eval() o exec()!")
+    print(f"Detalle de hallazgos: {dangerous_matches}")
     print("Resultado: VULNERABLE (Bloqueo preventivo por regla estricta)")
     exit(1)
 

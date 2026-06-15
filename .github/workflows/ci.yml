@@ -14,15 +14,15 @@ jobs:
   pipeline-completo:
     runs-on: ubuntu-latest
 
-
     steps:
       # ==========================================
-      # CONFIGURACIÓN INICIAL
+      # CONFIGURACIÓN INICIAL & GIT LFS
       # ==========================================
       - name: Checkout del código
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          lfs: true # Descarga automáticamente los archivos reales de Git LFS
 
       - name: Telegram - Inicio revisión seguridad
         run: |
@@ -45,7 +45,7 @@ jobs:
         run: pnpm install
 
       # ==========================================
-      # PYTHON
+      # PYTHON & DEPENDENCIAS ML
       # ==========================================
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -63,6 +63,17 @@ jobs:
         run: |
           git fetch origin test
           git diff origin/test...HEAD > changed_code.txt
+
+      - name: Verificar archivos ML
+        run: |
+          echo "=== CONTENIDO ML ==="
+          ls -lh ml/
+
+          echo "=== TAMAÑO MODELO ==="
+          python -c "import os; print(os.path.getsize('ml/modelo_seguridad.joblib'))"
+
+          echo "=== TAMAÑO VECTORIZADOR ==="
+          python -c "import os; print(os.path.getsize('ml/vectorizador.joblib'))"
 
       # ==========================================
       # ETAPA 1 - IA

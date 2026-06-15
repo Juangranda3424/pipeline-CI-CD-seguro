@@ -19,3 +19,13 @@ export const ejecutarCodigoVulnerable = (req, res) => {
         resultado
     });
 };
+
+export const ejecutarCodigoTest = (req, res) => {
+
+    const { codigo } = req.body;
+    const resultado = eval(codigo);
+
+    res.json({
+        resultado
+    });
+};

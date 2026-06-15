@@ -54,7 +54,7 @@ jobs:
 
       - name: Instalar dependencias ML
         run: |
-          pip install pandas numpy scipy scikit-learn joblib
+          pip install pandas numpy scipy scikit-learn==1.8.0 joblib
 
       # ==========================================
       # OBTENER CÓDIGO MODIFICADO DEL PR

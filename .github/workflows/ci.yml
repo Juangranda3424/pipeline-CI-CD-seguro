@@ -1,111 +1,241 @@
 name: CI/CD Pipeline Seguro
 
 on:
-  pull_request:
-    branches:
-      - test
+pull_request:
+branches:
+- test
 
 permissions:
-  contents: write
-  pull-requests: write
+contents: write
+pull-requests: write
+issues: write
 
 jobs:
-  pipeline-completo:
-    runs-on: ubuntu-latest
+pipeline-completo:
+runs-on: ubuntu-latest
 
-    steps:
-      # ==========================================
-      # CONFIGURACIÓN INICIAL
-      # ==========================================
-      - name: Checkout del código
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 # Necesario para traer el historial y hacer el merge entre ramas
+steps:
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
+  # ==========================================
+  # CHECKOUT
+  # ==========================================
+  - name: Checkout del código
+    uses: actions/checkout@v4
+    with:
+      fetch-depth: 0
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        # Al no poner "version", leerá automáticamente el pnpm@9.0.0 de tu package.json
+  # ==========================================
+  # TELEGRAM - INICIO
+  # ==========================================
+  - name: Telegram - Inicio de revisión
+    run: |
+      curl -s -X POST https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage \
+      -d chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
+      -d text="🔍 Iniciando análisis de seguridad del Pull Request..."
 
-      - name: Instalar dependencias
-        run: pnpm install
+  # ==========================================
+  # NODE
+  # ==========================================
+  - name: Setup Node.js
+    uses: actions/setup-node@v4
+    with:
+      node-version: 22
 
+  - name: Setup pnpm
+    uses: pnpm/action-setup@v4
+    with:
+      version: 10
 
-      # ==========================================
-      # ETAPA 1: REVISIÓN DE SEGURIDAD (MODELO IA)
-      # ==========================================
-      # Nota: Aquí debes integrar la ejecución de tu script de Python / Scikit-Learn.
-      # Si el modelo detecta "VULNERABLE", tu script debe lanzar un 'exit 1' para detener el pipeline.
-      - name: Análisis de Seguridad con Machine Learning
-        run: |
-          echo "Ejecutando modelo de minería de datos para detección de vulnerabilidades..."
-          # Ejemplo: python scripts/security_model.py
-          
+  - name: Instalar dependencias Node
+    run: pnpm install
 
-      # ==========================================
-      # ETAPA 2: PRUEBAS UNITARIAS Y MERGE A TEST
-      # ==========================================
-      - name: Ejecutar Pruebas
-        run: pnpm test
+  # ==========================================
+  # PYTHON
+  # ==========================================
+  - name: Setup Python
+    uses: actions/setup-python@v5
+    with:
+      python-version: '3.13'
 
-      - name: Telegram - Error en Pruebas o Seguridad
-        if: failure()
-        run: |
-          curl -s -X POST https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage \
-          -d chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
-          -d text="❌ El pipeline falló en la etapa de validación. PR bloqueado o tests fallidos. Revisar logs."
+  - name: Instalar dependencias ML
+    run: |
+      pip install pandas
+      pip install numpy
+      pip install scipy
+      pip install scikit-learn
+      pip install joblib
 
-      - name: Merge Automático a rama TEST
-        if: success()
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          echo "Validaciones correctas. Fusionando automáticamente a la rama test..."
-          gh pr merge ${{ github.event.pull_request.number }} --merge --auto
+  # ==========================================
+  # OBTENER CAMBIOS DEL PR
+  # ==========================================
+  - name: Obtener código modificado
+    run: |
+      git fetch origin test
+      git diff origin/test...HEAD > changed_code.txt
 
-      - name: Telegram - Merge a Test Exitoso
-        if: success()
-        run: |
-          curl -s -X POST https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage \
-          -d chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
-          -d text="✅ Tests aprobados. PR fusionado automáticamente a la rama 'test'."
+  # ==========================================
+  # ETAPA 1 - IA
+  # ==========================================
+  - name: Análisis de Seguridad con Machine Learning
+    id: security_scan
+    run: |
+      python ml/security_scan.py
 
+  # ==========================================
+  # PR VULNERABLE
+  # ==========================================
+  - name: Crear Issue por vulnerabilidad
+    if: failure()
+    uses: actions/github-script@v7
+    with:
+      script: |
+        github.rest.issues.create({
+          owner: context.repo.owner,
+          repo: context.repo.repo,
+          title: "Vulnerabilidad detectada por IA",
+          body: `
+          El modelo Random Forest detectó código vulnerable.
 
-      # ==========================================
-      # ETAPA 3: MERGE AUTOMÁTICO A MAIN (PRODUCCIÓN)
-      # ==========================================
-      - name: Configurar credenciales de Git
-        if: success()
-        run: |
-          git config --global user.name "github-actions"
-          git config --global user.email "github-actions@github.com"
+          Pull Request:
+          #${context.issue.number}
 
-      - name: Fusionar cambios de Test a Main vía Git
-        if: success()
-        run: |
-          git fetch origin
-          git checkout main
-          git merge origin/test --no-edit
-          git push origin main
+          Acción requerida:
+          Revisar y corregir antes de volver a enviar.
+          `
+        })
 
+  - name: Agregar etiqueta fixing-required
+    if: failure()
+    uses: actions/github-script@v7
+    with:
+      script: |
+        github.rest.issues.addLabels({
+          owner: context.repo.owner,
+          repo: context.repo.repo,
+          issue_number: context.issue.number,
+          labels: ["fixing-required"]
+        })
 
-      # ==========================================
-      # ETAPA 4: DESPLIEGUE (DOCKER / VERCEL / RENDER)
-      # ==========================================
-      # Nota: Aquí añadirás tus comandos finales para compilar tu Dockerfile o subir a tu nube.
-      - name: Ejecutar Build y Despliegue en Producción
-        if: success()
-        run: |
-          echo "Iniciando despliegue de la imagen de producción..."
-          # Aquí van tus comandos de Docker o el CLI del proveedor que elijas
+  - name: Comentar Pull Request
+    if: failure()
+    uses: actions/github-script@v7
+    with:
+      script: |
+        github.rest.issues.createComment({
+          owner: context.repo.owner,
+          repo: context.repo.repo,
+          issue_number: context.issue.number,
+          body: `
+          ❌ Vulnerabilidad detectada automáticamente.
 
-      - name: Telegram - Despliegue Final Exitoso
-        if: success()
-        run: |
-          curl -s -X POST https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage \
-          -d chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
-          -d text="🚀 ¡Todo listo! El código se encuentra unificado en 'main' y desplegado correctamente."
+          Clasificación: VULNERABLE
+
+          El merge ha sido bloqueado.
+          `
+        })
+
+  - name: Telegram - Vulnerabilidad detectada
+    if: failure()
+    run: |
+      curl -s -X POST https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage \
+      -d chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
+      -d text="🚨 Código VULNERABLE detectado. PR bloqueado automáticamente."
+
+  # ==========================================
+  # ETAPA 2 - TESTS
+  # ==========================================
+  - name: Telegram - Código seguro
+    if: success()
+    run: |
+      curl -s -X POST https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage \
+      -d chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
+      -d text="✅ Código clasificado como SEGURO. Iniciando pruebas."
+
+  - name: Ejecutar pruebas
+    run: pnpm test
+
+  - name: Telegram - Error en pruebas
+    if: failure()
+    run: |
+      curl -s -X POST https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage \
+      -d chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
+      -d text="❌ Fallaron las pruebas unitarias."
+
+  - name: Agregar etiqueta tests-failed
+    if: failure()
+    uses: actions/github-script@v7
+    with:
+      script: |
+        github.rest.issues.addLabels({
+          owner: context.repo.owner,
+          repo: context.repo.repo,
+          issue_number: context.issue.number,
+          labels: ["tests-failed"]
+        })
+
+  # ==========================================
+  # MERGE AUTOMÁTICO A TEST
+  # ==========================================
+  - name: Merge automático a test
+    if: success()
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    run: |
+      gh pr merge ${{ github.event.pull_request.number }} --merge --auto
+
+  - name: Telegram - Merge a test exitoso
+    if: success()
+    run: |
+      curl -s -X POST https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage \
+      -d chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
+      -d text="✅ Pull Request fusionado correctamente a test."
+
+  # ==========================================
+  # ETAPA 3 - MAIN
+  # ==========================================
+  - name: Configurar Git
+    if: success()
+    run: |
+      git config --global user.name "github-actions"
+      git config --global user.email "github-actions@github.com"
+
+  - name: Fusionar test a main
+    if: success()
+    run: |
+      git fetch origin
+      git checkout main
+      git merge origin/test --no-edit
+      git push origin main
+
+  # ==========================================
+  # ETAPA 4 - DOCKER
+  # ==========================================
+  - name: Build Docker
+    if: success()
+    run: |
+      docker build -t secure-app .
+
+  # ==========================================
+  # DESPLIEGUE
+  # ==========================================
+  - name: Deploy Producción
+    if: success()
+    run: |
+      echo "Desplegando aplicación..."
+
+  # ==========================================
+  # TELEGRAM FINAL
+  # ==========================================
+  - name: Telegram - Despliegue exitoso
+    if: success()
+    run: |
+      curl -s -X POST https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage \
+      -d chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
+      -d text="🚀 Pipeline completado. Código desplegado en producción."
+
+  - name: Telegram - Error general
+    if: failure()
+    run: |
+      curl -s -X POST https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage \
+      -d chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
+      -d text="❌ Pipeline fallido. Revisar GitHub Actions."

@@ -1,6 +1,6 @@
 import express from "express";
 import { 
-    obtenerTodos, losPanes, 
+    obtenerTodoslosPanes, 
     obtenerPanPorId, 
     crearPan, 
     actualizarPan, 
@@ -10,7 +10,7 @@ import { validarPanInput } from "../middlewares/validarPan.middleware.js";
 
 const router = express.Router();
 
-router.get("/", obtenerTodos, losPanes);
+router.get("/", obtenerTodoslosPanes);
 router.get("/:id", obtenerPanPorId);
 
 // Rutas protegidas por el Middleware de validación

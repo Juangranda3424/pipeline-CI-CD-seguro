@@ -181,6 +181,7 @@ jobs:
           -d chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
           -d text="❌ Fallaron las pruebas unitarias. Merge cancelado."
 
+          
       # ==========================================
       # MERGE AUTOMÁTICO A TEST
       # ==========================================

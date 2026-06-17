@@ -127,6 +127,7 @@ else:
         else:
             details_msg = "- Detectados patrones de estructura anómalos o de alto riesgo en los archivos modificados."
 
+
 # Exportar datos al entorno de GitHub Actions si está disponible
 if "GITHUB_ENV" in os.environ:
     with open(os.environ["GITHUB_ENV"], "a") as env_file:

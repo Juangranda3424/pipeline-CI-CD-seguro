@@ -70,6 +70,7 @@ with open(archivo_entrada, "r", encoding="utf-8") as f:
                 dato["func_limpia"] = codigo_limpio
                 registros_javascript.append(dato)
                 
+                
         except json.JSONDecodeError as e:
             print(f"⚠️ Error de parseo en línea {num_linea}: {e}")
         except Exception as e:

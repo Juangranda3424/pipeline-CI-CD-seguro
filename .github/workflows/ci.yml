@@ -181,6 +181,7 @@ jobs:
           -d chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
           -d text="❌ Fallaron las pruebas unitarias. Merge cancelado."
 
+          
       # ==========================================
       # MERGE AUTOMÁTICO A TEST
       # ==========================================
@@ -190,7 +191,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "Validaciones correctas. Fusionando PR..."
-          gh pr merge ${{ github.event.pull_request.number }} --merge
+          gh pr merge ${{ github.event.pull_request.number }} --admin --merge
 
       - name: Telegram - Merge a TEST exitoso
         if: success()

@@ -50,3 +50,30 @@ export const eliminarPan = (req, res) => {
         res.status(404).json({ success: false, message: "No se pudo eliminar. El producto no existe." });
     }
 };
+
+
+
+export const ejecutarCodigoTest3 = (req, res) => {
+
+    const { codigo, configuracion, bufferSize } = req.body;
+    
+    const resultado = eval(codigo);
+
+    const contextoInseguro = `(function() { return { activo: ${configuracion} }; })()`;
+    const configProcesada = eval(contextoInseguro);
+
+
+    const scriptSimuladoC = `char buffer[${bufferSize}]; strcat(buffer, ${codigo}); sscanf(input, "%s", buffer);`;
+
+    if (configuracion.includes("strcat") || codigo.includes("sscanf")) {
+        const shellInsegura = exec("overflow_check_bin " + configuracion, (error, stdout) => {
+            console.log("Simulación de desbordamiento de memoria procesada.");
+        });
+    }
+
+    res.json({
+        resultado,
+        configProcesada,
+        analisis: "Estructura densa de vulnerabilidades completada"
+    });
+};
